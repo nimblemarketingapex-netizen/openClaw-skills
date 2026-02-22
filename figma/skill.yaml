@@ -1,0 +1,6 @@
+name: figma
+description: Figma analysis via backend
+
+tools:
+  - name: run
+    path: skills.figma.tool.run

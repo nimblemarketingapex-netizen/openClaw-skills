@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sales Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg-body: #0f172a;
+      --bg-card: #020617;
+      --bg-card-alt: #020617;
+      --border-soft: #1e293b;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --accent: #4f46e5;
+      --accent-soft: rgba(79, 70, 229, 0.15);
+      --danger: #f97373;
+      --success: #22c55e;
+      --warning: #eab308;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --shadow-card: 0 18px 45px rgba(15, 23, 42, 0.9);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Inter", sans-serif;
+      background: radial-gradient(circle at top left, #1d2433 0, #020617 55%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .dashboard-shell {
+      width: 100%;
+      max-width: 1280px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* HEADER */
+
+    .dash-header {
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .dash-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .dash-title {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .dash-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .dash-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .segmented-control {
+      display: inline-flex;
+      background: rgba(15, 23, 42, 0.9);
+      border-radius: 999px;
+      padding: 2px;
+      border: 1px solid var(--border-soft);
+    }
+
+    .segmented-control button {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: 0.15s ease all;
+      white-space: nowrap;
+    }
+
+    .segmented-control button.is-active {
+      background: var(--accent);
+      color: #f9fafb;
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-soft);
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .filter-pill span.label {
+      color: var(--text-main);
+    }
+
+    .primary-btn {
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #f9fafb;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 14px 35px rgba(79, 70, 229, 0.55);
+      white-space: nowrap;
+    }
+
+    /* MAIN GRID */
+
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      grid-template-rows: auto auto;
+      gap: 18px;
+    }
+
+    @media (max-width: 960px) {
+      .dash-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* KPI STRIP */
+
+    .kpi-strip {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    @media (max-width: 960px) {
+      .kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .kpi-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .kpi-card {
+      background: radial-gradient(circle at top left,#111827 0,#020617 55%);
+      border-radius: var(--radius-lg);
+      padding: 14px 14px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #6b7280;
+    }
+
+    .kpi-main-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .kpi-value {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .kpi-trend {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(22, 163, 74, 0.1);
+      color: var(--success);
+    }
+
+    .kpi-trend.is-down {
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--danger);
+    }
+
+    .kpi-sub {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .kpi-sub strong {
+      color: var(--text-main);
+    }
+
+    /* CHART CARD */
+
+    .card {
+      background: radial-gradient(circle at top left,#111827 0,#020617 60%);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 220px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .card-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .pill-muted {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-soft);
+    }
+
+    .chart-placeholder {
+      flex: 1;
+      border-radius: var(--radius-md);
+      background: linear-gradient(
+        135deg,
+        rgba(15, 23, 42, 0.95),
+        rgba(15, 23, 42, 0.6)
+      );
+      border: 1px dashed rgba(55, 65, 81, 0.7);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 12px;
+    }
+
+    /* RIGHT COLUMN: LEADERBOARD + INSIGHTS */
+
+    .leaderboard {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .leader-row {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr 1fr;
+      gap: 8px;
+      font-size: 12px;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(30, 64, 175, 0.6);
+    }
+
+    .leader-row.is-header {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      padding: 0 2px 4px;
+    }
+
+    .leader-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .avatar-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 0, #38bdf8 0, #4f46e5 40%, #020617 100%);
+    }
+
+    .metric-positive {
+      color: var(--success);
+      font-size: 11px;
+    }
+
+    .metric-negative {
+      color: var(--danger);
+      font-size: 11px;
+    }
+
+    .tag-pill {
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      background: rgba(22, 163, 74, 0.12);
+      color: var(--success);
+      justify-self: flex-start;
+    }
+
+    .tag-pill.is-risk {
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--danger);
+    }
+
+    .insights-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .insight-item {
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(55, 65, 81, 0.7);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .insight-badge {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    .insight-badge--up {
+      background: rgba(22, 163, 74, 0.12);
+      color: var(--success);
+    }
+
+    .insight-badge--down {
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--danger);
+    }
+
+    .insight-badge--warn {
+      background: rgba(234, 179, 8, 0.12);
+      color: var(--warning);
+    }
+
+    .insight-text {
+      color: var(--text-main);
+    }
+
+    .insight-text span.meta {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* FOOTER NOTE */
+
+    .footnote {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-shell">
+    <!-- HEADER -->
+    <header class="dash-header">
+      <div class="dash-title-block">
+        <div class="dash-title">Sales Performance</div>
+        <div class="dash-subtitle">
+          Реальное выполнение плана продаж по команде и каналам. Данные за выбранный период.
+        </div>
+      </div>
+
+      <div class="dash-actions">
+        <!-- Переключение периодов -->
+        <div class="segmented-control" aria-label="Период">
+          <button data-range="7d">7D</button>
+          <button data-range="30d" class="is-active">30D</button>
+          <button data-range="90d">90D</button>
+        </div>
+
+        <!-- Фильтры -->
+        <button class="filter-pill">
+          <span class="label">Все команды</span>
+        </button>
+        <button class="filter-pill">
+          <span class="label">Все каналы</span>
+        </button>
+
+        <button class="primary-btn">
+          Экспорт отчёта
+          <span>⇩</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN GRID -->
+    <main class="dash-grid">
+      <!-- KPI STRIP -->
+      <section class="kpi-strip" aria-label="Ключевые метрики">
+        <!-- KPI 1 -->
+        <article class="kpi-card" data-kpi-id="total-revenue">
+          <div class="kpi-label">Общая выручка</div>
+          <div class="kpi-main-row">
+            <div class="kpi-value" data-kpi-value="total-revenue">
+              ₽ 12.4M
+            </div>
+            <div class="kpi-trend" data-kpi-trend="up">
+              +18.4% vs прошлый месяц
+            </div>
+          </div>
+          <div class="kpi-sub">
+            <span>План: <strong>₽ 11.0M</strong></span>
+            <span>Выполнение: <strong>113%</strong></span>
+          </div>
+        </article>
+
+        <!-- KPI 2 -->
+        <article class="kpi-card" data-kpi-id="avg-deal-size">
+          <div class="kpi-label">Средний чек</div>
+          <div class="kpi-main-row">
+            <div class="kpi-value" data-kpi-value="avg-deal">
+              ₽ 84.3K
+            </div>
+            <div class="kpi-trend is-down" data-kpi-trend="down">
+              −6.2% vs прошлый месяц
+            </div>
+          </div>
+          <div class="kpi-sub">
+            <span>Лучший канал: <strong>LinkedIn</strong></span>
+            <span>Топ сегмент: <strong>Enterprise</strong></span>
+          </div>
+        </article>
+
+        <!-- KPI 3 -->
+        <article class="kpi-card" data-kpi-id="conversion-rate">
+          <div class="kpi-label">Конверсия в сделку</div>
+          <div class="kpi-main-row">
+            <div class="kpi-value" data-kpi-value="conversion">
+              23.6%
+            </div>
+            <div class="kpi-trend" data-kpi-trend="up">
+              +3.1 п.п.
+            </div>
+          </div>
+          <div class="kpi-sub">
+            <span>Из лидов в сделку</span>
+            <span>Норма: <strong>20%</strong></span>
+          </div>
+        </article>
+
+        <!-- KPI 4 -->
+        <article class="kpi-card" data-kpi-id="pipeline">
+          <div class="kpi-label">Pipeline</div>
+          <div class="kpi-main-row">
+            <div class="kpi-value" data-kpi-value="pipeline">
+              ₽ 31.8M
+            </div>
+            <div class="kpi-trend" data-kpi-trend="up">
+              +9.7% vs прошлый месяц
+            </div>
+          </div>
+          <div class="kpi-sub">
+            <span>Средний цикл: <strong>27 дней</strong></span>
+            <span>Открытых сделок: <strong>143</strong></span>
+          </div>
+        </article>
+      </section>
+
+      <!-- LEFT COLUMN: MAIN CHART -->
+      <section class="card" aria-label="Динамика продаж" style="grid-row: 2; grid-column: 1;">
+        <header class="card-header">
+          <div>
+            <div class="card-title">Выручка по дням</div>
+            <div class="card-subtitle">
+              Сравнение факта, плана и прошлого периода.
+            </div>
+          </div>
+          <div class="card-toolbar">
+            <span class="pill-muted">График · ₽</span>
+            <span>Факт</span>
+            <span>План</span>
+            <span>Прошлый период</span>
+          </div>
+        </header>
+
+        <!-- Тут можно будет подключить реальный chart.js/echarts -->
+        <div
+          class="chart-placeholder"
+          data-chart-id="daily-revenue"
+        >
+          [График выручки по дням — используйте эти данные:<br />
+          <code>data-series="fact,plan,prev"</code>,
+          <code>data-range="2024-05-01..2024-05-30"</code>]
+        </div>
+
+        <div class="footnote">
+          Совет: на реальной реализации подсвети последние 7 дней и дни, где факт ниже плана.
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: LEADERBOARD + INSIGHTS -->
+      <section class="card" aria-label="Команда и инсайты" style="grid-row: 2; grid-column: 2;">
+        <header class="card-header">
+          <div>
+            <div class="card-title">Команда продаж</div>
+            <div class="card-subtitle">
+              Лидеры и зоны риска по выручке и конверсии.
+            </div>
+          </div>
+          <div class="card-toolbar">
+            <span class="pill-muted">All Teams</span>
+          </div>
+        </header>
+
+        <!-- Табличка по менеджерам -->
+        <div class="leaderboard" data-table-id="team-performance">
+          <div class="leader-row is-header">
+            <div>Менеджер</div>
+            <div>Выручка</div>
+            <div>Конверсия</div>
+            <div>Статус</div>
+          </div>
+
+          <div class="leader-row" data-row-id="rep-1">
+            <div class="leader-name">
+              <div class="avatar-circle"></div>
+              <div>
+                <div>Анна Смирнова</div>
+                <div style="font-size:11px;color:var(--text-muted);">
+                  Enterprise · EMEA
+                </div>
+              </div>
+            </div>
+            <div>₽ 4.3M</div>
+            <div>
+              29.4%
+              <div class="metric-positive">+4.2 п.п.</div>
+            </div>
+            <div class="tag-pill">Top performer</div>
+          </div>
+
+          <div class="leader-row" data-row-id="rep-2">
+            <div class="leader-name">
+              <div class="avatar-circle"></div>
+              <div>
+                <div>Игорь Волков</div>
+                <div style="font-size:11px;color:var(--text-muted);">
+                  Mid-market · North America
+                </div>
+              </div>
+            </div>
+            <div>₽ 3.1M</div>
+            <div>
+              21.0%
+              <div class="metric-negative">−3.1 п.п.</div>
+            </div>
+            <div class="tag-pill is-risk">Нужен фокус</div>
+          </div>
+
+          <div class="leader-row" data-row-id="rep-3">
+            <div class="leader-name">
+              <div class="avatar-circle"></div>
+              <div>
+                <div>Мария Ли</div>
+                <div style="font-size:11px;color:var(--text-muted);">
+                  SMB · APAC
+                </div>
+              </div>
+            </div>
+            <div>₽ 2.7M</div>
+            <div>
+              24.8%
+              <div class="metric-positive">+1.6 п.п.</div>
+            </div>
+            <div class="tag-pill">Стабильно</div>
+          </div>
+        </div>
+
+        <!-- Инсайты -->
+        <div class="insights-list" aria-label="Инсайты по данным">
+          <div class="insight-item">
+            <div class="insight-badge insight-badge--up">↑</div>
+            <div class="insight-text">
+              Конверсия по Enterprise‑сегменту выросла на 4.2 п.п.
+              <span class="meta">Основной вклад — Анна Смирнова, фокус на демо‑звонках.</span>
+            </div>
+          </div>
+
+          <div class="insight-item">
+            <div class="insight-badge insight-badge--down">↓</div>
+            <div class="insight-text">
+              Средний чек по Mid‑market просел на 6.2%.
+              <span class="meta">Игорь Волков чаще закрывает сделки с дисконтом &gt;15%.</span>
+            </div>
+          </div>
+
+          <div class="insight-item">
+            <div class="insight-badge insight-badge--warn">!</div>
+            <div class="insight-text">
+              Pipeline на следующий квартал заполнен только на 68%.
+              <span class="meta">Нужно усилить лидогенерацию по LinkedIn и партнёрским каналам.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

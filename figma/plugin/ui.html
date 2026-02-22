@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 12px;
+    }
+    button {
+      width: 100%;
+      margin: 6px 0;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="create-block">Создать блок</button>
+  <button id="create-text">Создать текст</button>
+  <button id="close">Закрыть</button>
+
+  <script>
+    document.getElementById('create-block').onclick = () => {
+      parent.postMessage({ pluginMessage: { type: "create-block" } }, '*');
+    };
+
+    document.getElementById('create-text').onclick = () => {
+      parent.postMessage({ pluginMessage: { type: "create-text" } }, '*');
+    };
+
+    document.getElementById('close').onclick = () => {
+      parent.postMessage({ pluginMessage: { type: "close" } }, '*');
+    };
+  </script>
+
+</body>
+</html>
