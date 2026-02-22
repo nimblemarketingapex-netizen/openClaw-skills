@@ -1,38 +1,131 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 12px;
-    }
-    button {
-      width: 100%;
-      margin: 6px 0;
-      padding: 8px;
-    }
-  </style>
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <style>
+            body {
+                font-family: sans-serif;
+                margin: 0;
+                padding: 8px;
+                background: #1e1e1e;
+                color: white;
+            }
+            #main {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            #status {
+                font-size: 11px;
+                flex: 1;
+            }
+            button {
+                padding: 4px 8px;
+                font-size: 11px;
+                cursor: pointer;
+                background: #333;
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+            }
+            #setup {
+                display: none;
+                margin-top: 8px;
+            }
+            input {
+                width: 100%;
+                padding: 4px;
+                box-sizing: border-box;
+                font-size: 11px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="main">
+            <div id="status">⚪ Не подключено</div>
+            <button id="settingsBtn">⚙</button>
+            <button id="closeBtn">✕</button>
+        </div>
+        <div id="setup">
+            <input id="userId" placeholder="Figma User ID" />
+            <button id="connectBtn" style="width: 100%; margin-top: 4px">
+                Подключить
+            </button>
+        </div>
 
-  <button id="create-block">Создать блок</button>
-  <button id="create-text">Создать текст</button>
-  <button id="close">Закрыть</button>
+        <script>
+            let ws = null;
+            let currentUserId = null;
+            let reconnectTimer = null;
 
-  <script>
-    document.getElementById('create-block').onclick = () => {
-      parent.postMessage({ pluginMessage: { type: "create-block" } }, '*');
-    };
+            parent.postMessage({ pluginMessage: { type: "ready" } }, "*");
 
-    document.getElementById('create-text').onclick = () => {
-      parent.postMessage({ pluginMessage: { type: "create-text" } }, '*');
-    };
+            window.onmessage = (event) => {
+                const msg = event.data.pluginMessage;
+                if (!msg) return;
 
-    document.getElementById('close').onclick = () => {
-      parent.postMessage({ pluginMessage: { type: "close" } }, '*');
-    };
-  </script>
+                // Инициализация: подключаемся с сохранённым userId
+                if (msg.type === "saved-id" && msg.userId) {
+                    document.getElementById("userId").value = msg.userId;
+                    connect(msg.userId);
+                }
 
-</body>
+                // Ответы от code.js → пересылаем в backend
+                if (msg.type === "response") {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify(msg));
+                    }
+                }
+            };
+
+            document.getElementById("settingsBtn").onclick = () => {
+                const s = document.getElementById("setup");
+                s.style.display = s.style.display === "none" ? "block" : "none";
+            };
+
+            document.getElementById("closeBtn").onclick = () => {
+                parent.postMessage({ pluginMessage: { type: "close" } }, "*");
+            };
+
+            document.getElementById("connectBtn").onclick = () => {
+                const userId = document.getElementById("userId").value.trim();
+                if (!userId) return;
+                clearTimeout(reconnectTimer);
+                connect(userId);
+                document.getElementById("setup").style.display = "none";
+            };
+
+            function connect(userId) {
+                currentUserId = userId;
+                if (ws) ws.close();
+
+                ws = new WebSocket(
+                    "wss://gustless-osmometrically-celinda.ngrok-free.dev/ws"
+                );
+                ws.onopen = () => {
+                    ws.send(JSON.stringify({ type: "register", userId }));
+                    parent.postMessage(
+                        { pluginMessage: { type: "save-id", userId } },
+                        "*"
+                    );
+                    document.getElementById("status").textContent =
+                        "🟢 Подключено";
+                };
+                ws.onmessage = (event) => {
+                    const cmd = JSON.parse(event.data);
+                    parent.postMessage({ pluginMessage: cmd }, "*");
+                };
+                ws.onerror = () => {
+                    document.getElementById("status").textContent = "🔴 Ошибка";
+                };
+                ws.onclose = () => {
+                    document.getElementById("status").textContent =
+                        "🟡 Переподключение...";
+                    if (currentUserId) {
+                        reconnectTimer = setTimeout(() => connect(currentUserId), 3000);
+                    }
+                };
+            }
+        </script>
+    </body>
 </html>

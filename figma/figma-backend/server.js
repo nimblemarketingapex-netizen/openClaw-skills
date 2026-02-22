@@ -8,6 +8,55 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const WebSocket = require("ws");
+const http = require("http");
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server, path: "/ws" });
+
+// Хранилище подключённых плагинов: user_id → ws
+const pluginClients = new Map();
+// Хранилище ответов от плагина: user_id → { ...response }
+const pluginResponses = new Map();
+
+wss.on("connection", (ws) => {
+  console.log("Plugin connected");
+
+  ws.on("message", (data) => {
+    const msg = JSON.parse(data);
+
+    if (msg.type === "register") {
+      pluginClients.set(msg.userId, ws);
+      // Привязываем userId к ws для обратных ответов
+      ws._userId = msg.userId;
+      console.log("Plugin registered for user:", msg.userId);
+      ws.send(JSON.stringify({ type: "registered" }));
+    }
+
+    // Ответ от плагина (get-page-nodes и др.)
+    if (msg.type === "response") {
+      const uid = ws._userId;
+      if (uid) pluginResponses.set(uid, msg);
+    }
+  });
+
+  ws.on("close", () => {
+    // Удаляем при отключении
+    for (const [uid, client] of pluginClients) {
+      if (client === ws) pluginClients.delete(uid);
+    }
+  });
+});
+
+// Функция отправки команды в плагин
+function sendToPlugin(userId, command) {
+  const ws = pluginClients.get(String(userId));
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return { ok: false, error: "Plugin not connected" };
+  }
+  ws.send(JSON.stringify(command));
+  return { ok: true };
+}
+
 const CLIENT_ID = process.env.FIGMA_CLIENT_ID;
 const CLIENT_SECRET = process.env.FIGMA_CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI;
@@ -23,6 +72,10 @@ db.exec(`
     created_at INTEGER DEFAULT (strftime('%s', 'now'))
   )
 `);
+// Миграция: добавляем колонки если их нет
+for (const col of ["login TEXT", "email TEXT", "telegram_id TEXT"]) {
+  try { db.exec(`ALTER TABLE tokens ADD COLUMN ${col}`); } catch {}
+}
 
 // 1. OAuth начало
 app.get("/auth/figma", (req, res) => {
@@ -121,16 +174,43 @@ const email = me.data.email || null;
   }
 });
 
-// 3. Список всех сохранённых токенов
+// 3. Список всех сохранённых пользователей
 app.get("/tokens", (req, res) => {
-  const rows = db.prepare("SELECT user_id, expires_at, created_at FROM tokens").all();
+  const rows = db.prepare("SELECT user_id, login, email, telegram_id, expires_at FROM tokens").all();
   res.json(rows);
 });
+
+// 3a. Найти figma user_id по telegram_id
+app.get("/figma/user-by-telegram/:telegramId", (req, res) => {
+  const row = db.prepare("SELECT user_id, login, email FROM tokens WHERE telegram_id = ?").get(String(req.params.telegramId));
+  if (!row) return res.status(404).json({ error: "No Figma account linked for this Telegram user" });
+  res.json(row);
+});
+
+// 3b. Привязать telegram_id к figma user_id
+app.post("/figma/link-telegram", (req, res) => {
+  const { user_id, telegram_id } = req.body;
+  if (!user_id || !telegram_id) return res.status(400).json({ error: "user_id and telegram_id required" });
+  const result = db.prepare("UPDATE tokens SET telegram_id = ? WHERE user_id = ?").run(String(telegram_id), String(user_id));
+  if (result.changes === 0) return res.status(404).json({ error: "user_id not found" });
+  res.json({ ok: true });
+});
+
+// Кэш файлов: { key → { data, ts } }, TTL 60 секунд
+const fileCache = new Map();
+const CACHE_TTL = 60 * 1000;
 
 // 4. Получение файла (токен берётся из БД по user_id)
 app.get("/figma/file/:fileKey", async (req, res) => {
   const { fileKey } = req.params;
   const userId = req.query.user_id || "default";
+  const noCache = req.query.no_cache === "1";
+
+  const cacheKey = `${userId}:${fileKey}`;
+  const cached = fileCache.get(cacheKey);
+  if (!noCache && cached && Date.now() - cached.ts < CACHE_TTL) {
+    return res.json(cached.data);
+  }
 
   const row = db.prepare("SELECT access_token FROM tokens WHERE user_id = ?").get(userId);
   if (!row) return res.status(401).json({ error: "No token for user " + userId });
@@ -140,6 +220,7 @@ app.get("/figma/file/:fileKey", async (req, res) => {
       `https://api.figma.com/v1/files/${fileKey}`,
       { headers: { "Authorization": "Bearer " + row.access_token } }
     );
+    fileCache.set(cacheKey, { data: response.data, ts: Date.now() });
     res.json(response.data);
   } catch (error) {
     console.error("Figma API error:", error.response?.data);
@@ -147,6 +228,23 @@ app.get("/figma/file/:fileKey", async (req, res) => {
   }
 });
 
-app.listen(4000, "0.0.0.0", () => {
+server.listen(4000, "0.0.0.0", () => {
   console.log("Server running on port 4000");
+});
+
+// Получить последний ответ от плагина (например, результат get-page-nodes)
+app.get("/figma/response/:userId", (req, res) => {
+  const data = pluginResponses.get(String(req.params.userId));
+  if (!data) return res.status(404).json({ error: "No response yet" });
+  pluginResponses.delete(String(req.params.userId)); // одноразовый
+  res.json(data);
+});
+
+// Команда в плагин от бота
+app.post("/figma/command", (req, res) => {
+  const { user_id, command } = req.body;
+  // command = { type: "change-text", nodeId: "...", text: "..." }
+  
+  const result = sendToPlugin(user_id, command);
+  res.json(result);
 });
