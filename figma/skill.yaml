@@ -1,5 +1,9 @@
 name: figma
-description: Figma analysis via backend
+description: >
+  Работа с Figma через плагин и backend.
+  Используй action=get_nodes чтобы получить элементы страницы,
+  action=command чтобы изменить/создать/удалить элементы,
+  action=get_file для чтения файла через REST API.
 
 tools:
   - name: run

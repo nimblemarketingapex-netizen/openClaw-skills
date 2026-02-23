@@ -70,7 +70,8 @@
                     connect(msg.userId);
                 }
 
-                // Ответы от code.js → пересылаем в backend
+                // Ответы от code.js → пересылаем в backend через WebSocket
+                // Включаем requestId для корректной маршрутизации ответов
                 if (msg.type === "response") {
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify(msg));
@@ -113,6 +114,7 @@
                 };
                 ws.onmessage = (event) => {
                     const cmd = JSON.parse(event.data);
+                    // Пересылаем команду в code.js (включая requestId если есть)
                     parent.postMessage({ pluginMessage: cmd }, "*");
                 };
                 ws.onerror = () => {
@@ -122,7 +124,10 @@
                     document.getElementById("status").textContent =
                         "🟡 Переподключение...";
                     if (currentUserId) {
-                        reconnectTimer = setTimeout(() => connect(currentUserId), 3000);
+                        reconnectTimer = setTimeout(
+                            () => connect(currentUserId),
+                            3000
+                        );
                     }
                 };
             }
