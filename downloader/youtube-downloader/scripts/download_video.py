@@ -12,7 +12,7 @@ import shutil
 
 # ======== FIXED PATH CONFIG ========
 
-SKILL_DIR = Path.home() / ".openclaw/workspace/skills/youtube-downloader"
+SKILL_DIR = Path.home() / ".openclaw/workspace/skills/downloader/youtube-downloader"
 OUTPUT_DIR = SKILL_DIR / "outputs"
 
 # Создаём папку outputs если её нет

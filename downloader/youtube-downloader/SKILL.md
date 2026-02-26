@@ -9,7 +9,7 @@ Download YouTube videos with full control over quality and format settings.
 
 # Structure:
 
-~/.openclaw/workspace/skills/youtube-downloader/
+~/.openclaw/workspace/skills/downloader/youtube-downloader/
 ├── scripts/
 │   └── download_video.py
 ├── outputs/
@@ -25,12 +25,12 @@ Download YouTube videos with full control over quality and format settings.
 From inside the skill folder:
 
 ```bash
-cd ~/.openclaw/workspace/skills/youtube-downloader
+cd ~/.openclaw/workspace/skills/downloader/youtube-downloader
 python scripts/download_video.py "https://www.youtube.com/watch?v=VIDEO_ID"
 
 By default, this downloads the video in best quality (MP4) into:
 
-~/.openclaw/workspace/skills/youtube-downloader/outputs/
+~/.openclaw/workspace/skills/downloader/youtube-downloader/outputs/
 
 ## Options
 
