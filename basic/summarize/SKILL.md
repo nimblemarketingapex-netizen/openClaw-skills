@@ -2,95 +2,104 @@
 name: summarize
 description: Summarize text, URLs, local files, and YouTube videos — extract transcripts or short summaries when asked about content of links or media.
 ---
-user-invocable: true
+# Summarize (security-first)
 
-If the user asks to summarize a link, article, or video:
+Settings are externalized to OpenClaw config:
 
-1. Ask the user for the URL or file path if missing.
-2. If it’s a web URL, run:  
-   ```bash
-   summarize "{{URL}}" --model google/gemini-3-flash-preview
-homepage: https://summarize.sh
-metadata:
-  {
-    "openclaw":
-      {
-        "emoji": "🧾",
-        "requires": { "bins": ["summarize"] },
-        "install":
-          [
-            {
-              "id": "brew",
-              "kind": "brew",
-              "formula": "steipete/tap/summarize",
-              "bins": ["summarize"],
-              "label": "Install summarize (brew)",
-            },
-          ],
-      },
-  }
----
+## Config path
 
-# Summarize
+`~/.openclaw/openclaw.json`
 
-Fast CLI to summarize URLs, local files, and YouTube links.
+# Summarize (local LLM)
 
-## When to use (trigger phrases)
+Fast summarization of URLs, text, and documents using your local AI model.
 
-Use this skill immediately when the user asks any of:
+## How it works
 
-- “use summarize.sh”
-- “what’s this link/video about?”
-- “summarize this URL/article”
-- “transcribe this YouTube/video” (best-effort transcript extraction; no `yt-dlp` needed)
+When invoked, OpenClaw will:
 
-## Quick start
+1. Pass input (URL or text) to this skill
+2. If URL → fetch content (optional, CLI summarize can do this)
+3. Send content to local Ollama LLM
+4. Return generated summary
+5. Optionally forward result to Telegram or UI
 
-```bash
-summarize "https://example.com" --model google/gemini-3-flash-preview
-summarize "/path/to/file.pdf" --model google/gemini-3-flash-preview
-summarize "https://youtu.be/dQw4w9WgXcQ" --youtube auto
-```
+## Trigger phrases (auto-invoke)
 
-## YouTube: summary vs transcript
+Use this skill when user asks:
 
-Best-effort transcript (URLs only):
+- “summarize this”
+- “what is this article about”
+- “short summary”
+- “explain this link”
+- “what’s inside this document”
+- “transcribe or summarize YouTube”
+
+OpenClaw will call this skill automatically.
+
+## Model (local)
+
+All processing is local via Ollama:
+
+- default model: `mistral`
+- API: http://localhost:11434/api/generate
+- no external keys
+- offline capable
+
+If model is missing, instruct user to run:
 
 ```bash
-summarize "https://youtu.be/dQw4w9WgXcQ" --youtube auto --extract-only
+ollama pull mistral
+ollama run mistral
+Usage (CLI or internal)
 ```
 
-If the user asked for a transcript but it’s huge, return a tight summary first, then ask which section/time range to expand.
+## You may call summarize CLI if available:
 
-## Model + keys
+summarize "https://example.com" --model mistral
 
-Set the API key for your chosen provider:
+# Or process raw text:
 
-- OpenAI: `OPENAI_API_KEY`
-<!-- - Anthropic: `ANTHROPIC_API_KEY`
-- xAI: `XAI_API_KEY`
-- Google: `GEMINI_API_KEY` (aliases: `GOOGLE_GENERATIVE_AI_API_KEY`, `GOOGLE_API_KEY`) -->
+summarize --text "large text here"
 
-Default model is `google/gemini-3-flash-preview` if none is set.
+**OpenClaw will capture output and return it.**
 
-## Useful flags
+## Output style
 
-- `--length short|medium|long|xl|xxl|<chars>`
-- `--max-output-tokens <count>`
-- `--extract-only` (URLs only)
-- `--json` (machine readable)
-- `--firecrawl auto|off|always` (fallback extraction)
-- `--youtube auto` (Apify fallback if `APIFY_API_TOKEN` set)
+- concise summary by default
+- highlight key facts
+- no marketing fluff
+- bullet points preferred
+- keep under requested length (if specified)
 
-## Config
+## Example:
 
-Optional config file: `~/.summarize/config.json`
+**Original:** 2000 words
+**Summary:** 3–5 bullet points + one sentence takeaway
 
-```json
-{ "model": "openai/gpt-5.2" }
-```
+## Error handling
 
-Optional services:
+**If LLM unavailable:**
 
-- `FIRECRAWL_API_KEY` for blocked sites
-- `APIFY_API_TOKEN` for YouTube fallback
+- fallback message
+- log error
+- notify user
+
+# Example:
+
+Sorry, summary is unavailable right now.
+Config (optional)
+
+~/.summarize/config.json
+
+{
+  "model": "mistral",
+  "max_length": "short"
+}
+
+## Extensions
+
+- YouTube transcript → summary
+- PDF/text file → summary
+- URL content → summary
+- Telegram response

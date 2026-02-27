@@ -7,22 +7,13 @@
 import requests
 import logging
 from collections import defaultdict
-from datetime import datetime
+
 
 # -----------------------------
 # CONFIG & TOKENS
 # -----------------------------
 
 def get_wb_token(config):
-    """
-    Достаёт API-токен:
-    {
-      "wb": {
-        "enabled": true,
-        "WB_API_TOKEN": {"apiKey": "KEY"}
-      }
-    }
-    """
     try:
         return config["wb"]["WB_API_TOKEN"]["apiKey"]
     except (KeyError, TypeError):
@@ -31,46 +22,74 @@ def get_wb_token(config):
 
 # -----------------------------
 # API: SALES STATISTICS
+# GET /api/v1/supplier/sales
+# dateFrom — дата начала (включительно), dateTo НЕ поддерживается
+# Пагинация: если ответ не пустой — запрашиваем дальше по lastChangeDate
 # -----------------------------
 
-def get_sales_stats(token, date_from, date_to):
+def get_sales_stats(token, date_from, date_to=None):
     """
-    Получаем статистику продаж за период.
+    Получаем продажи начиная с date_from.
+    date_to — используем для фильтрации на стороне клиента,
+    т.к. API принимает только dateFrom.
+
+    date_from формат: "2024-01-01"
     """
     url = "https://statistics-api.wildberries.ru/api/v1/supplier/sales"
     headers = {"Authorization": token}
-    params = {
-        "dateFrom": date_from,
-        "dateTo": date_to
-    }
 
-    try:
-        r = requests.get(url, headers=headers, params=params, timeout=10)
-    except requests.RequestException as e:
-        logging.error(f"Sales stats error: {e}")
-        return []
+    all_sales = []
+    current_date_from = date_from
 
-    if r.status_code != 200:
-        logging.warning(f"Sales stats code: {r.status_code}")
-        return []
+    while True:
+        params = {"dateFrom": current_date_from}
 
-    return r.json()
+        try:
+            r = requests.get(url, headers=headers, params=params, timeout=30)
+        except requests.RequestException as e:
+            logging.error(f"Sales stats request error: {e}")
+            break
+
+        if r.status_code != 200:
+            logging.warning(f"Sales stats code: {r.status_code}, body: {r.text}")
+            break
+
+        try:
+            data = r.json()
+        except Exception:
+            logging.error("Failed to parse sales stats JSON")
+            break
+
+        if not data:
+            break
+
+        # фильтруем по date_to на клиенте (если передан)
+        if date_to:
+            filtered = [
+                item for item in data
+                if item.get("lastChangeDate", "") <= date_to + "T23:59:59"
+            ]
+        else:
+            filtered = data
+
+        all_sales.extend(filtered)
+
+        # пагинация: берём lastChangeDate последней записи
+        last_date = data[-1].get("lastChangeDate")
+        if not last_date or len(data) < 500:
+            # меньше 500 записей — значит это последняя страница
+            break
+
+        current_date_from = last_date  # следующий запрос с этой даты
+
+    return all_sales
 
 
 # -----------------------------
-# ANALYSIS (IMPROVED)
+# ANALYSIS
 # -----------------------------
 
 def analyze_sales(data):
-    """
-    Улучшенная аналитика:
-    - GMV
-    - заказы
-    - средний чек
-    - разбивка по товарам
-    - динамика по дням
-    """
-
     summary = {
         "total_orders": 0,
         "gmv": 0.0,
@@ -80,9 +99,10 @@ def analyze_sales(data):
     }
 
     for item in data:
-        price = float(item.get("priceWithDiscount", 0))
-        sku = item.get("nmId") or item.get("sku")
-        date = item.get("date")
+        # WB возвращает priceWithDiscount или forPay
+        price = float(item.get("priceWithDiscount") or item.get("forPay") or 0)
+        sku = item.get("nmId") or item.get("nmID") or item.get("sku")
+        date = item.get("date") or item.get("lastChangeDate")
 
         summary["total_orders"] += 1
         summary["gmv"] += price
@@ -91,17 +111,14 @@ def analyze_sales(data):
             summary["by_sku"][sku] += price
 
         if date:
-            # нормализуем дату (только день)
             day = date.split("T")[0]
             summary["by_date"][day] += price
 
-    # средний чек
     summary["avg_check"] = (
         summary["gmv"] / summary["total_orders"]
         if summary["total_orders"] else 0
     )
 
-    # топ-товары (5 шт.)
     top_sku = sorted(
         summary["by_sku"].items(),
         key=lambda x: x[1],
@@ -113,18 +130,16 @@ def analyze_sales(data):
         "gmv": summary["gmv"],
         "avg_check": summary["avg_check"],
         "top_sku": top_sku,
+        "by_sku": dict(summary["by_sku"]),   # ← добавлено для forecast
         "by_date": dict(summary["by_date"])
     }
 
 
 # -----------------------------
-# PROCESS (MAIN LOGIC)
+# PROCESS
 # -----------------------------
 
 def process(config, date_from, date_to):
-    """
-    Основная точка входа аналитики.
-    """
     if not config.get("wb", {}).get("enabled"):
         return {}
 

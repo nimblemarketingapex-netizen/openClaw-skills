@@ -9,16 +9,7 @@
 def generate_recommendations(analytics):
     """
     Генерирует бизнес-рекомендации на основе аналитики.
-
-    analytics = {
-        "orders": ...,
-        "gmv": ...,
-        "avg_check": ...,
-        "top_sku": [...],
-        "by_date": {...}
-    }
     """
-
     recs = []
 
     orders = analytics.get("orders", 0)
@@ -26,48 +17,24 @@ def generate_recommendations(analytics):
     avg_check = analytics.get("avg_check", 0)
     top_sku = analytics.get("top_sku", [])
 
-    # -----------------------------
-    # Базовые рекомендации
-    # -----------------------------
-
     if orders == 0:
         recs.append("Продажи отсутствуют. Проверьте наличие товаров и видимость карточек.")
     elif gmv < 10000:
         recs.append("Низкий GMV. Рассмотрите акцию или продвижение топ-товаров.")
-
-    # -----------------------------
-    # Средний чек
-    # -----------------------------
 
     if avg_check < 2000:
         recs.append("Средний чек низкий. Попробуйте кросс-продажи или комплекты.")
     elif avg_check > 5000:
         recs.append("Высокий средний чек — можно усиливать премиальные позиции.")
 
-    # -----------------------------
-    # Топ-товары
-    # -----------------------------
-
     if top_sku:
         top_items = ", ".join([str(sku) for sku, _ in top_sku])
         recs.append(f"Топ-товары: {top_items}. Усильте их продвижение.")
-
     else:
         recs.append("Нет данных по топ-товарам. Проверьте аналитику SKU.")
-
-    # -----------------------------
-    # Итог
-    # -----------------------------
 
     return recs
 
 
-# -----------------------------
-# PROCESS (MAIN LOGIC)
-# -----------------------------
-
 def process(analytics):
-    """
-    Точка входа рекомендаций.
-    """
     return generate_recommendations(analytics)
